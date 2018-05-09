@@ -1,9 +1,9 @@
 #pragma once
 
-#include <iostream>
-#include <vector>
 #include <inttypes.h>
+#include <iostream>
 #include <string>
+#include <vector>
 
 class BigInteger
 {
@@ -158,7 +158,7 @@ private:
 
 	BigInteger divideMagnitude(const BigInteger & div, BigInteger & quotient) const;
 
-	static BigInteger multiplyByInt(const std::vector<int32_t> x, const uint32_t y, int sign);
+	static BigInteger multiplyByInt(const std::vector<int32_t> x, int32_t y, int sign);
 
 	static std::vector<int32_t> multiplyToLen(const std::vector<int32_t> x, size_t xlen, const std::vector<int32_t> y, size_t ylen);
 

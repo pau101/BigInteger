@@ -1,8 +1,5 @@
 #include <utility>
 
-#include <algorithm>
-
-#include "stdafx.h"
 #include "biginteger.h"
 
 const std::vector<std::vector<BigInteger>> BigInteger::POWER_CACHE = [] {
@@ -928,7 +925,7 @@ BigInteger BigInteger::divideMagnitude(const BigInteger & div, BigInteger & quot
 	return rem.toBigInteger() >> shift;
 }
 
-BigInteger BigInteger::multiplyByInt(const std::vector<int32_t> x, const uint32_t y, int sign)
+BigInteger BigInteger::multiplyByInt(const std::vector<int32_t> x, int32_t y, int sign)
 {
 	if (bitCount(y) == 1)
 	{
@@ -937,10 +934,11 @@ BigInteger BigInteger::multiplyByInt(const std::vector<int32_t> x, const uint32_
 	size_t xlen = x.size();
 	std::vector<int32_t> rmag(xlen + 1, 0);
 	int64_t carry = 0;
+	uint32_t y1 = (uint32_t)y;
 	size_t rstart = rmag.size() - 1;
 	for (size_t i = xlen; i-- > 0; )
 	{
-		int64_t product = (int64_t)(uint32_t)x[i] * y + carry;
+		int64_t product = (int64_t)(uint32_t)x[i] * y1 + carry;
 		rmag[rstart--] = (int32_t)product;
 		carry = (uint64_t)product >> 32;
 	}
@@ -1183,8 +1181,8 @@ std::vector<int32_t> BigInteger::shiftLeft(std::vector<int32_t> mag, int32_t n)
 	std::vector<int32_t> newMag;
 	if (nBits == 0)
 	{
-		newMag.assign(magLen + nInts, 0);
 		newMag.insert(newMag.begin(), mag.begin(), mag.end());
+		newMag.resize(magLen + nInts, 0);
 	}
 	else
 	{
