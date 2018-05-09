@@ -117,6 +117,11 @@ BigInteger::BigInteger(int signum, std::vector<int32_t> magnitude)
 	this->mag = magnitude;
 }
 
+BigInteger BigInteger::withSign(int sign) const
+{
+	return this->signum == 0 ? *this : BigInteger(sign, this->mag);
+}
+
 int32_t BigInteger::getInt(size_t n) const
 {
 	if (n < 0)
@@ -248,8 +253,19 @@ BigInteger BigInteger::operator*(const BigInteger & rhs) const
 		return 0;
 	}
 	size_t xlen = this->mag.size();
-	// TODO: multiplication
-	return BigInteger();
+	size_t ylen = rhs.mag.size();
+	int resultSign = this->signum == rhs.signum ? 1 : -1;
+	if (rhs.mag.size() == 1)
+	{
+		return multiplyByInt(this->mag, rhs.mag[0], resultSign);
+	}
+	if (this->mag.size() == 1)
+	{
+		return multiplyByInt(rhs.mag, this->mag[0], resultSign);
+	}
+	std::vector<int32_t> result = multiplyToLen(this->mag, xlen, rhs.mag, ylen);
+	result = stripLeadingZeroInts(result);
+	return BigInteger(resultSign, result);
 }
 
 BigInteger BigInteger::operator/(const BigInteger & rhs) const
@@ -311,45 +327,11 @@ BigInteger BigInteger::abs() const
 	return this->signum >= 0 ? *this : -*this;
 }
 
-BigInteger BigInteger::divide(const BigInteger & b, BigInteger & quotient) const
+BigInteger BigInteger::divide(const BigInteger & val, BigInteger & quotient) const
 {
-	if (b.mag.size() == 0)
-	{
-		throw "BigInteger divide by zero";
-	}
-	if (this->mag.size() == 0)
-	{
-		quotient = 0;
-		return 0;
-	}
-	int cmp = compare(b);
-	if (cmp < 0)
-	{
-		quotient = 0;
-		return *this;
-	}
-	if (cmp == 0)
-	{
-		quotient = 1;
-		return 0;
-	}
-	quotient = 0;
-	if (b.mag.size() == 1)
-	{
-		return divideOneWord(b.mag[0], quotient);
-	}
-	if (false && this->mag.size() >= KNUTH_POW2_THRESH_LEN)
-	{
-		int lb1 = getLowestSetBit(), lb2 = b.getLowestSetBit();
-		int trailingZeroBits = lb1 < lb2 ? lb1 : lb2;
-		if (trailingZeroBits >= KNUTH_POW2_THRESH_ZEROS * 32)
-		{
-			BigInteger r = (*this >> trailingZeroBits).divide(b >> trailingZeroBits, quotient);
-			r = r << trailingZeroBits;
-			return r;
-		}
-	}
-	return divideMagnitude(b, quotient);
+	BigInteger r = divideKnuth(val, quotient);
+	quotient = quotient.withSign(this->signum == val.signum ? 1 : -1);
+	return r.withSign(this->signum);
 }
 
 std::string BigInteger::toString() const
@@ -569,6 +551,46 @@ std::string BigInteger::smallToString(int radix) const
 	return buf;
 }
 
+BigInteger BigInteger::divideKnuth(const BigInteger & b, BigInteger & quotient) const
+{
+	if (b.mag.size() == 0)
+	{
+		throw "BigInteger divide by zero";
+	}
+	if (this->mag.size() == 0)
+	{
+		quotient = 0;
+		return 0;
+	}
+	int cmp = compare(b);
+	if (cmp < 0)
+	{
+		quotient = 0;
+		return *this;
+	}
+	if (cmp == 0)
+	{
+		quotient = 1;
+		return 0;
+	}
+	if (b.mag.size() == 1)
+	{
+		return divideOneWord(b.mag[0], quotient);
+	}
+	if (false && this->mag.size() >= KNUTH_POW2_THRESH_LEN)
+	{
+		int lb1 = getLowestSetBit(), lb2 = b.getLowestSetBit();
+		int trailingZeroBits = lb1 < lb2 ? lb1 : lb2;
+		if (trailingZeroBits >= KNUTH_POW2_THRESH_ZEROS * 32)
+		{
+			BigInteger r = (*this >> trailingZeroBits).divide(b >> trailingZeroBits, quotient);
+			r = r << trailingZeroBits;
+			return r;
+		}
+	}
+	return divideMagnitude(b, quotient);
+}
+
 int32_t BigInteger::divideOneWord(int32_t divisor, BigInteger & quotient) const
 {
 	uint32_t divisorLong = (uint32_t)divisor;
@@ -616,7 +638,7 @@ int32_t BigInteger::divideOneWord(int32_t divisor, BigInteger & quotient) const
 		q.value[this->mag.size() - xlen] = qhat;
 		remLong = (int32_t)rem;
 	}
-	quotient = q.toBigInteger(1);//TODO division sign
+	quotient = q.toBigInteger();
 	if (shift > 0)
 	{
 		return rem % divisor;
@@ -630,7 +652,7 @@ BigInteger BigInteger::divideMagnitude(const BigInteger & div, BigInteger & quot
 	{
 		throw "Illegal divisor";
 	}
-	int shift = 0;// numberOfLeadingZeroes(div.mag[0]);
+	int shift = numberOfLeadingZeroes(div.mag[0]);
 	size_t dlen = div.mag.size();
 	std::vector<int32_t> divisor;
 	MutableBigInteger rem;
@@ -780,7 +802,7 @@ BigInteger BigInteger::divideMagnitude(const BigInteger & div, BigInteger & quot
 		{
 			uint32_t nl = (uint32_t)rem.value[limit + 1 + rem.offset];
 			uint64_t rs = ((uint64_t)(uint32_t)qrem << 32) | nl;
-			uint64_t estProduct = (uint64_t)dl * qhat;
+			uint64_t estProduct = (uint64_t)dl * (uint32_t)qhat;
 			if (estProduct > rs)
 			{
 				qhat--;
@@ -805,8 +827,62 @@ BigInteger BigInteger::divideMagnitude(const BigInteger & div, BigInteger & quot
 		}
 		q.value[limit - 1] = qhat;
 	}
-	quotient = q.toBigInteger(this->signum == div.signum ? 1 : -1);
-	return rem.toBigInteger(this->signum) >> shift;
+	quotient = q.toBigInteger();
+	return rem.toBigInteger() >> shift;
+}
+
+BigInteger BigInteger::multiplyByInt(const std::vector<int32_t> x, const uint32_t y, int sign)
+{
+	if (bitCount(y) == 1)
+	{
+		return BigInteger(sign, shiftLeft(x, numberOfTrailingZeroes(y)));
+	}
+	size_t xlen = x.size();
+	std::vector<int32_t> rmag(xlen + 1, 0);
+	int64_t carry = 0;
+	size_t rstart = rmag.size() - 1;
+	for (size_t i = xlen; i-- > 0; )
+	{
+		int64_t product = (int64_t)(uint32_t)x[i] * y + carry;
+		rmag[rstart--] = (int32_t)product;
+		carry = (uint64_t)product >> 32;
+	}
+	if (carry == 0)
+	{
+		rmag.erase(rmag.begin());
+	}
+	else
+	{
+		rmag[rstart] = (int32_t)carry;
+	}
+	return BigInteger(sign, rmag);
+}
+
+std::vector<int32_t> BigInteger::multiplyToLen(const std::vector<int32_t> x, size_t xlen, const std::vector<int32_t> y, size_t ylen)
+{
+	size_t xstart = xlen - 1;
+	size_t ystart = ylen;
+	std::vector<int32_t> z(xlen + ylen, 0);
+	int64_t carry = 0;
+	for (size_t j = ystart, k = ystart + 1 + xstart; j-- > 0; )
+	{
+		int64_t product = (int64_t)(uint32_t)y[j] * (uint32_t)x[xstart] + carry;
+		z[--k] = (int32_t)product;
+		carry = (uint64_t)product >> 32;
+	}
+	z[xstart] = (int32_t)carry;
+	for (size_t i = xstart; i-- > 0; )
+	{
+		carry = 0;
+		for (size_t j = ystart, k = ystart + 1 + i; j-- > 0; )
+		{
+			int64_t product = (int64_t)(uint32_t)y[j] * (uint32_t)x[i] + (uint32_t)z[--k] + carry;
+			z[k] = (int32_t)product;
+			carry = (uint64_t)product >> 32;
+		}
+		z[i] = (int32_t)carry;
+	}
+	return z;
 }
 
 void BigInteger::copyAndShift(const std::vector<int32_t> & src, size_t srcFrom, size_t srcLen, std::vector<int32_t> & dst, size_t dstFrom, int shift)
@@ -1072,7 +1148,7 @@ int BigInteger::numberOfLeadingZeroes(int32_t i)
 	if ((uint32_t)i >> 24 == 0) { n += 8; i <<= 8; }
 	if ((uint32_t)i >> 28 == 0) { n += 4; i <<= 4; }
 	if ((uint32_t)i >> 30 == 0) { n += 2; i <<= 2; }
-	n -= i >> 31;
+	n -= (uint32_t)i >> 31;
 	return n;
 }
 

@@ -60,7 +60,7 @@ public:
 
 	~BigInteger();
 
-//private:
+private:
 	static const int MIN_RADIX = 2, MAX_RADIX = 36;
 
 	static const int SCHOENHAGE_BASE_CONVERSION_THRESHOLD = 20;
@@ -81,9 +81,13 @@ public:
 
 	static const std::vector<std::string> ZEROES;
 
-	struct MutableBigInteger {
+	class MutableBigInteger
+	{
+	public:
 		std::vector<int32_t> value;
+
 		size_t intLen;
+
 		size_t offset;
 
 		void normalize()
@@ -107,14 +111,14 @@ public:
 			this->offset = this->intLen == 0 ? 0 : this->offset + numZeros;
 		}
 
-		BigInteger toBigInteger(int sign)
+		BigInteger toBigInteger()
 		{
 			normalize();
-			if (this->intLen == 0 || sign == 0)
+			if (this->intLen == 0)
 			{
 				return 0;
 			}
-			return BigInteger(sign, std::vector<int32_t>(this->value.begin() + this->offset, this->value.begin() + this->offset + this->intLen));
+			return BigInteger(1, std::vector<int32_t>(this->value.begin() + this->offset, this->value.begin() + this->offset + this->intLen));
 		}
 	};
 
@@ -125,6 +129,8 @@ public:
 	BigInteger(std::vector<int32_t> & val);
 
 	BigInteger(int signum, std::vector<int32_t> magnitude);
+
+	BigInteger withSign(int sign) const;
 
 	int32_t getInt(size_t n) const;
 
@@ -138,9 +144,15 @@ public:
 
 	std::string smallToString(int radix) const;
 
+	BigInteger divideKnuth(const BigInteger & val, BigInteger & quotient) const;
+
 	int32_t divideOneWord(int32_t divisor, BigInteger & quotient) const;
 
 	BigInteger divideMagnitude(const BigInteger & div, BigInteger & quotient) const;
+
+	static BigInteger multiplyByInt(const std::vector<int32_t> x, const uint32_t y, int sign);
+
+	static std::vector<int32_t> multiplyToLen(const std::vector<int32_t> x, size_t xlen, const std::vector<int32_t> y, size_t ylen);
 
 	static void copyAndShift(const std::vector<int32_t> & src, size_t srcFrom, size_t srcLen, std::vector<int32_t> & dst, size_t dstFrom, int shift);
 
