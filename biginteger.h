@@ -12,6 +12,8 @@ public:
 
 	BigInteger(const BigInteger & other);
 
+	BigInteger(std::string val, int radix = 10);
+
 	bool operator<(const BigInteger & rhs) const;
 
 	bool operator>(const BigInteger & rhs) const;
@@ -54,7 +56,7 @@ public:
 
 	size_t bitLength() const;
 
-	friend std::istream & operator>>(std::istream & input, const BigInteger & value);
+	friend std::istream & operator>>(std::istream & input, BigInteger & value);
 
 	friend std::ostream & operator<<(std::ostream & output, const BigInteger & value);
 
@@ -79,7 +81,13 @@ private:
 
 	static const BigInteger LONG_RADIX[];
 
+	static const int DIGITS_PER_INT[];
+
+	static const int INT_RADIX[];
+
 	static const std::vector<std::string> ZEROES;
+
+	static const size_t BITS_PER_DIGIT[];
 
 	class MutableBigInteger
 	{
@@ -186,5 +194,11 @@ private:
 
 	static int bitCount(int32_t i);
 
-	static std::string lltoa(int64_t l, int radix);
+	static int32_t stringToInt(std::string s, int radix);
+
+	static std::string longToString(int64_t l, int radix);
+
+	static void destructiveMulAdd(std::vector<int32_t> & x, int32_t y, int32_t z);
+
+	static int charToDigit(char ch, int radix);
 };

@@ -51,6 +51,21 @@ const BigInteger BigInteger::LONG_RADIX[] = { NULL, NULL,
 	BigInteger(0x41c21cb8e1000000)
 };
 
+const int BigInteger::DIGITS_PER_INT[] = { 0, 0,
+	30, 19, 15, 13, 11, 11, 10, 9, 9, 8, 8, 8, 8, 7, 7, 7, 7, 7,
+	7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5
+};
+
+const int BigInteger::INT_RADIX[] = { 0, 0,
+	0x40000000, 0x4546b3db, 0x40000000, 0x48c27395, 0x159fd800,
+	0x75db9c97, 0x40000000, 0x17179149, 0x3b9aca00 , 0xcc6db61,
+	0x19a10000, 0x309f1021, 0x57f6c100,  0xa2f1b6f, 0x10000000,
+	0x18754571, 0x247dbc80, 0x3547667b, 0x4c4b4000, 0x6b5a6e1d,
+	 0x6c20a40,  0x8d2d931,  0xb640000,  0xe8d4a51, 0x1269ae40,
+	0x17179149, 0x1cb91000, 0x23744899, 0x2b73a840, 0x34e63b41,
+	0x40000000, 0x4cfa3cc1, 0x5c13d840, 0x6d91b519,  0x39aa400
+};
+
 const std::vector<std::string> BigInteger::ZEROES = [] {
 	std::vector<std::string> zeroes(64);
 	zeroes[63] = "000000000000000000000000000000000000000000000000000000000000000";
@@ -60,6 +75,13 @@ const std::vector<std::string> BigInteger::ZEROES = [] {
 	}
 	return zeroes;
 }();
+
+const size_t BigInteger::BITS_PER_DIGIT[] = { 0, 0,
+	1024, 1624, 2048, 2378, 2648, 2875, 3072, 3247, 3402, 3543, 3672,
+	3790, 3899, 4001, 4096, 4186, 4271, 4350, 4426, 4498, 4567, 4633,
+	4696, 4756, 4814, 4870, 4923, 4975, 5025, 5074, 5120, 5166, 5210,
+	5253, 5295
+};
 
 BigInteger::BigInteger(int64_t val)
 {
@@ -91,6 +113,84 @@ BigInteger::BigInteger(const BigInteger & other) :
 	signum(other.signum),
 	mag(other.mag)
 {
+}
+
+BigInteger::BigInteger(std::string val, int radix)
+{
+	size_t cursor = 0, numDigits;
+	const size_t len = val.size();
+	if (radix < MIN_RADIX || radix > MAX_RADIX)
+	{
+		throw "Radix out of range";
+	}
+	if (len == 0)
+	{
+		throw "Zero length BigInteger";
+	}
+	int sign = 1;
+	size_t index1 = val.find_last_of("-");
+	size_t index2 = val.find_last_of("+");
+	if (index1 != std::string::npos)
+	{
+		if (index1 != 0 || index2 != std::string::npos)
+		{
+			throw "Illegal embedded sign character";
+		}
+		sign = -1;
+		cursor = 1;
+	}
+	else if (index2 != std::string::npos)
+	{
+		if (index2 != 0)
+		{
+			throw "Illegal embedded sign character";
+		}
+		cursor = 1;
+	}
+	if (cursor == len)
+	{
+		throw "Zero length BigInteger";
+	}
+	while (cursor < len && charToDigit(val[cursor], radix) == 0)
+	{
+		cursor++;
+	}
+	if (cursor == len)
+	{
+		*this = 0;
+		return;
+	}
+	numDigits = len - cursor;
+	this->signum = sign;
+	size_t numBits = ((numDigits * BITS_PER_DIGIT[radix]) >> 10) + 1;
+	size_t numWords = (numBits + 31) >> 5;
+	std::vector<int32_t> magnitude(numWords);
+	size_t firstGroupLen = numDigits % DIGITS_PER_INT[radix];
+	if (firstGroupLen == 0)
+	{
+		firstGroupLen = DIGITS_PER_INT[radix];
+	}
+	std::string group = val.substr(cursor, firstGroupLen);
+	cursor += firstGroupLen;
+	magnitude[numWords - 1] = stringToInt(group, radix);
+	if (magnitude[numWords - 1] < 0)
+	{
+		throw "Illegal digit";
+	}
+	int superRadix = INT_RADIX[radix];
+	int32_t groupVal = 0;
+	while (cursor < len)
+	{
+		group = val.substr(cursor, DIGITS_PER_INT[radix]);
+		cursor += DIGITS_PER_INT[radix];
+		groupVal = stringToInt(group, radix);
+		if (groupVal < 0)
+		{
+			throw "Illegal digit";
+		}
+		destructiveMulAdd(magnitude, superRadix, groupVal);
+	}
+	this->mag = stripLeadingZeroInts(magnitude);
 }
 
 BigInteger::BigInteger(std::vector<int32_t> & val)
@@ -529,7 +629,7 @@ std::string BigInteger::smallToString(int radix) const
 		BigInteger d = LONG_RADIX[radix];
 		BigInteger q;
 		BigInteger r = tmp.divide(d, q);
-		digitGroup[numGroups++] = lltoa(r.longValue(), radix);
+		digitGroup[numGroups++] = longToString(r.longValue(), radix);
 		tmp = q;
 	}
 	std::string buf;
@@ -562,7 +662,7 @@ BigInteger BigInteger::divideKnuth(const BigInteger & b, BigInteger & quotient) 
 		quotient = 0;
 		return 0;
 	}
-	int cmp = compare(b);
+	int cmp = compareMagnitude(b);
 	if (cmp < 0)
 	{
 		quotient = 0;
@@ -965,8 +1065,11 @@ int32_t BigInteger::divadd(std::vector<int32_t> & a, std::vector<int32_t> & resu
 	return (int32_t)carry;
 }
 
-std::istream & operator>>(std::istream & input, const BigInteger & value)
+std::istream & operator>>(std::istream & input, BigInteger & value)
 {
+	std::string val;
+	input >> val;
+	value = BigInteger(val);
 	return input;
 }
 
@@ -1032,7 +1135,7 @@ std::vector<int32_t> BigInteger::add(const std::vector<int32_t> & x, const std::
 	{
 		while (yIndex > 0)
 		{
-			sum = (uint32_t)x[--xIndex] + (uint32_t)y[--yIndex] + ((uint64_t)sum >> 32);
+			sum = (int64_t)(uint32_t)x[--xIndex] + (uint32_t)y[--yIndex] + ((uint64_t)sum >> 32);
 			result[xIndex] = (int32_t)sum;
 		}
 	}
@@ -1177,7 +1280,66 @@ int BigInteger::bitCount(int32_t i)
 	return i & 0x3F;
 }
 
-std::string BigInteger::lltoa(int64_t i, int radix)
+int32_t BigInteger::stringToInt(std::string s, int radix)
+{
+	if (radix < MIN_RADIX || radix > MAX_RADIX)
+	{
+		throw "Radix out of range";
+	}
+	int32_t result = 0;
+	bool negative = false;
+	size_t i = 0, len = s.size();
+	int32_t limit = -INT32_MAX;
+	int32_t multmin;
+	int digit;
+	if (len > 0)
+	{
+		char firstChar = s[0];
+		if (firstChar < '0')
+		{
+			if (firstChar == '-')
+			{
+				negative = true;
+				limit = INT32_MIN;
+			}
+			else if (firstChar != '+')
+			{
+				throw "Malformed number";
+			}
+			if (len == 1)
+			{
+				throw "Malformed number";
+			}
+			i++;
+		}
+		multmin = limit / radix;
+		while (i < len)
+		{
+			digit = charToDigit(s[i++], radix);
+			if (digit < 0)
+			{
+				throw "Malformed number";
+			}
+			if (result < multmin)
+			{
+				throw "Malformed number";
+			}
+			result *= radix;
+			if (result < (limit + digit))
+			{
+				throw "Malformed number";
+			}
+			result -= digit;
+		}
+	}
+	else
+	{
+		throw "Malformed number";
+	}
+	return negative ? result : -result;
+}
+
+std::string BigInteger::longToString(int64_t i, int radix)
 {
 	static const char digits[] = {
 		'0' , '1' , '2' , '3' , '4' , '5' ,
@@ -1208,4 +1370,42 @@ std::string BigInteger::lltoa(int64_t i, int radix)
 		buf.insert(buf.begin(), '-');
 	}
 	return buf;
+}
+
+void BigInteger::destructiveMulAdd(std::vector<int32_t> & x, int32_t y, int32_t z)
+{
+	uint32_t ylong = (uint32_t)y;
+	uint32_t zlong = (uint32_t)z;
+	size_t len = x.size();
+	int64_t product = 0;
+	int64_t carry = 0;
+	for (size_t i = len; i-- > 0; )
+	{
+		product = (int64_t)ylong * (uint32_t)x[i] + carry;
+		x[i] = (int32_t)product;
+		carry = (uint64_t)product >> 32;
+	}
+	int64_t sum = (int64_t)(uint32_t)x[len - 1] + zlong;
+	x[len - 1] = (int32_t)sum;
+	carry = (uint64_t)carry >> 32;
+	for (size_t i = len - 1; i-- > 0; )
+	{
+		sum = (int64_t)(uint32_t)x[i] + carry;
+		x[i] = (int32_t)sum;
+		carry = (uint64_t)sum >> 32;
+	}
+}
+
+int BigInteger::charToDigit(char ch, int radix)
+{
+	static const std::string alpha = "0123456789abcdefghijklmnopqrstuvwxyz";
+	if (radix >= MIN_RADIX && radix <= MAX_RADIX)
+	{
+		size_t val = alpha.find(tolower(ch));
+		if (val != std::string::npos && (int)val < radix)
+		{
+			return (int)val;
+		}
+	}
+	return -1;
 }
