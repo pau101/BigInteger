@@ -813,13 +813,12 @@ BigInteger BigInteger::divideMagnitude(const BigInteger & div, BigInteger & quot
 		int32_t qrem = 0;
 		bool skipCorrection = false;
 		int32_t nh = rem.value[j + rem.offset];
-		int32_t nh2 = nh + (int32_t)0x80000000;
 		int32_t nm = rem.value[j + 1 + rem.offset];
 		if (nh == dh)
 		{
 			qhat = ~(int32_t)0;
 			qrem = nh + nm;
-			skipCorrection = (qrem + (int32_t)0x80000000) < nh2;
+			skipCorrection = (uint32_t)qrem < (uint32_t)nh;
 		}
 		else
 		{
@@ -862,7 +861,7 @@ BigInteger BigInteger::divideMagnitude(const BigInteger & div, BigInteger & quot
 		}
 		rem.value[j + rem.offset] = 0;
 		int32_t borrow = mulsub(rem.value, divisor, qhat, dlen, j + rem.offset);
-		if ((borrow + (int32_t)0x80000000) > nh2)
+		if ((uint32_t)borrow > (uint32_t)nh)
 		{
 			divadd(divisor, rem.value, j + 1 + rem.offset);
 			qhat--;
@@ -873,13 +872,12 @@ BigInteger BigInteger::divideMagnitude(const BigInteger & div, BigInteger & quot
 	int32_t qrem = 0;
 	bool skipCorrection = false;
 	int32_t nh = rem.value[limit - 1 + rem.offset];
-	int32_t nh2 = nh + (int32_t)0x80000000;
 	int32_t nm = rem.value[limit + rem.offset];
 	if (nh == dh)
 	{
 		qhat = ~(int32_t)0;
 		qrem = nh + nm;
-		skipCorrection = (qrem + (int32_t)0x80000000) < nh2;
+		skipCorrection = (uint32_t)qrem < (uint32_t)nh;
 	}
 	else
 	{
@@ -918,10 +916,9 @@ BigInteger BigInteger::divideMagnitude(const BigInteger & div, BigInteger & quot
 				}
 			}
 		}
-		int32_t borrow;
 		rem.value[limit - 1 + rem.offset] = 0;
-		borrow = mulsub(rem.value, divisor, qhat, dlen, limit - 1 + rem.offset);
-		if ((borrow + (int32_t)0x80000000) > nh2) {
+		int32_t borrow = mulsub(rem.value, divisor, qhat, dlen, limit - 1 + rem.offset);
+		if ((uint32_t)borrow > (uint32_t)nh) {
 			divadd(divisor, rem.value, limit - 1 + 1 + rem.offset);
 			qhat--;
 		}
