@@ -1,3 +1,7 @@
+/*
+* Paul Fulham
+*/
+
 #pragma once
 
 #include <inttypes.h>
@@ -8,6 +12,8 @@
 class BigInteger
 {
 public:
+	static const int MIN_RADIX = 2, MAX_RADIX = 36;
+
 	BigInteger(int64_t val = 0);
 
 	BigInteger(const BigInteger & other);
@@ -63,7 +69,6 @@ public:
 	~BigInteger();
 
 private:
-	static const int MIN_RADIX = 2, MAX_RADIX = 36;
 
 	static const int SCHOENHAGE_BASE_CONVERSION_THRESHOLD = 20;
 

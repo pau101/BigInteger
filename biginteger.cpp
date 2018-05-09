@@ -1,3 +1,7 @@
+/*
+* Paul Fulham
+*/
+
 #include <utility>
 
 #include "biginteger.h"
@@ -1105,7 +1109,8 @@ BigInteger BigInteger::getRadixConversionCache(int radix, int exponent)
 	{
 		for (auto i = cacheLine.size(); i <= (size_t)exponent; i++)
 		{
-			cacheLine[i] = cacheLine[i - 1] << 1; // .pow(2)
+			// shift as pow(2) shortcut
+			cacheLine[i] = cacheLine[i - 1] << 1;
 		}
 	}
 	return cacheLine[exponent];
