@@ -1338,14 +1338,7 @@ int32_t BigInteger::stringToInt(std::string s, int radix)
 
 std::string BigInteger::longToString(int64_t i, int radix)
 {
-	static const char digits[] = {
-		'0' , '1' , '2' , '3' , '4' , '5' ,
-		'6' , '7' , '8' , '9' , 'a' , 'b' ,
-		'c' , 'd' , 'e' , 'f' , 'g' , 'h' ,
-		'i' , 'j' , 'k' , 'l' , 'm' , 'n' ,
-		'o' , 'p' , 'q' , 'r' , 's' , 't' ,
-		'u' , 'v' , 'w' , 'x' , 'y' , 'z'
-	};
+	static const char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 	if (radix < MIN_RADIX || radix > MAX_RADIX)
 	{
 		radix = 10;
