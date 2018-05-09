@@ -2,6 +2,7 @@
 * Paul Fulham
 */
 
+#include <cmath>
 #include <utility>
 
 #include "biginteger.h"
@@ -31,7 +32,7 @@ const int BigInteger::DIGITS_PER_LONG[] = { 0, 0,
 	14, 14, 14, 13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 12, 12, 12, 12
 };
 
-const BigInteger BigInteger::LONG_RADIX[] = { NULL, NULL,
+const BigInteger BigInteger::LONG_RADIX[] = { 0, 0,
 	BigInteger(0x4000000000000000), BigInteger(0x383d9170b85ff80b),
 	BigInteger(0x4000000000000000), BigInteger(0x6765c793fa10079d),
 	BigInteger(0x41c21cb8e1000000), BigInteger(0x3642798750226111),

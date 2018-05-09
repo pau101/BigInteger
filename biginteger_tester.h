@@ -1,9 +1,9 @@
 /*
 * Paul Fulham
 *
-* g++ -o biginteger biginteger.h biginteger.cpp biginteger_tester.h biginteger_tester.cpp
+* g++ -std=c++14 -o biginteger biginteger.h biginteger.cpp biginteger_tester.h biginteger_tester.cpp
 *
-* cl /std:c++17 /permissive- /GS -Fe:biginteger.exe -EHsc biginteger.cpp biginteger_tester.cpp
+* cl -Fe:biginteger.exe -EHsc biginteger.cpp biginteger_tester.cpp
 *
 * BigInteger is my C++ partial translation of Java's BigInteger
 */

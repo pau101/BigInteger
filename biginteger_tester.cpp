@@ -3,6 +3,7 @@
 */
 
 #include <cstdlib>
+#include <limits>
 #include <stdio.h>
 
 #include "biginteger.h"
